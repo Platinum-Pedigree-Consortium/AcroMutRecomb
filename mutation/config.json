@@ -1,0 +1,5 @@
+{
+  "manifest": "validate_var.tab",
+  "mapq": "10",
+  "picard": "/net/eichler/vol26/home/mdnoyes/nobackups/software/picard/picard-tools-2.5.0/picard.jar"
+}

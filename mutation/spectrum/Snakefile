@@ -1,0 +1,134 @@
+import pandas as pd
+from itertools import product
+from itertools import chain
+from dataclasses import dataclass
+from typing import List
+
+configfile: "config.json"
+
+class Child:
+	sample_id: str
+	father_id: str
+	mother_id: str
+	father_regions: List[str]
+	mother_regions: List[str]
+	father_dnms: List[str]
+	mother_dnms: List[str]
+
+	def __init__(self, sample_id: str):
+		self.sample_id = sample_id
+		self.father_regions = {}
+		self.mother_regions = {}
+		self.father_dnms = {}
+		self.mother_dnms = {}
+
+	def add_parent_region(self, parent_type: str, region: str, fasta: str):
+		if parent_type == 'father':
+			self.father_regions[region] = fasta
+		elif parent_type == 'mother':
+			self.mother_regions[region] = fasta
+
+	def add_parent_dnms(self, parent_type: str, region: str, dnm_file: str):
+		if parent_type == 'father':
+			self.father_dnms[region] = dnm_file
+		elif parent_type == 'mother':
+			self.mother_dnms[region] = dnm_file
+
+	def return_fasta(self, parent_type: str, region:str):
+		if parent_type == 'father':
+			return self.father_regions[region]
+		elif parent_type == 'mother':
+			return self.mother_regions[region]
+		else:
+			raise KeyError(f'invalid child/parent/region combo: {self.sample_id} {parent_type} {region}')
+
+	def return_dnm_file(self, parent_type: str, region:str):
+		if parent_type == 'father':
+			return self.father_dnms[region]
+		elif parent_type == 'mother':
+			return self.mother_dnms[region]
+		else:
+			raise KeyError(f'invalid child/parent/region combo: {self.sample_id} {parent_type} {region}')
+
+	def check_for_region(self, parent_type: str, region:str):
+		if parent_type == 'father':
+			if region in self.father_regions:
+				return True
+		elif parent_type == 'mother':
+			if region in self.mother_regions:
+				return True
+
+		return False
+
+	def __repr__(self) -> str:
+		return self.sample_id
+
+
+MANIFEST = config["manifest"]
+LOOKUP_TABLE = config["lookup_table"]
+
+platforms = ['hifi', 'ont']
+
+manifest_df = pd.read_csv(MANIFEST, sep="\t", low_memory=False, header=0, dtype=str, keep_default_na=False)
+
+parents = ['father', 'mother']
+regions = []
+child_dict = {}
+
+for idx, row in manifest_df.iterrows():
+	sample = row['sample']
+	parent = row['parent_type']
+	region = row['region']
+
+	if sample not in child_dict:
+		child_dict[sample] = Child(sample)
+
+	child_dict[sample].add_parent_region(parent, region, row['parent_fasta'])
+	child_dict[sample].add_parent_dnms(parent, region, row['dnm_file'])
+	regions.append(region)
+
+regions = list(set(regions))
+samples = child_dict.keys()
+
+
+def get_parent(wildcards):
+	if wildcards.parent == 'father':
+		return child_dict[f"{wildcards.family}_{wildcards.sample}"].father_id
+	elif wildcards.parent == 'mother':
+		return child_dict[f"{wildcards.family}_{wildcards.sample}"].mother_id
+
+
+def filter_children(*args, **kwargs):
+	for wc_comb in product(*args, **kwargs):
+		sample = wc_comb[0][1]
+		parent = wc_comb[1][1]
+		region = wc_comb[2][1]
+
+		if child_dict[sample].check_for_region(parent, region):
+			yield(wc_comb)
+
+
+localrules: all
+
+rule all:
+	input:
+			expand("annotated_snvs/{sample}_from_{parent}.{region}.snvs.tsv", filter_children, sample = samples, parent = parents, region = regions)
+
+rule make_input_file:
+	input:
+		fasta = lambda wildcards: child_dict[f"{wildcards.sample}"].return_fasta(f"{wildcards.parent}", f"{wildcards.region}"),
+		dnm_file = lambda wildcards: child_dict[f"{wildcards.sample}"].return_dnm_file(f"{wildcards.parent}", f"{wildcards.region}")
+	output:
+		annotated_snvs = "annotated_snvs/{sample}_from_{parent}.{region}.snvs.tsv"
+	params:
+		lookup_table = LOOKUP_TABLE,
+		sample = "{sample}",
+		parent = "{parent}",
+		region = "{region}"
+	log:
+		"log/format_calls_{sample}_from_{parent}.{region}.log"
+	resources:
+		mem = 2,
+		hrs = 2
+	script:
+		"scripts/annotate.py"

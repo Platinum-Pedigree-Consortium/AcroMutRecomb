@@ -1,0 +1,2 @@
+sample	parent_id	parent_type	region	dnm_file	parent_fasta
+NA12887	NA12877	father	chr14	final_valid_snvs/NA12887_from_father.chr14.tsv	NA12887_2_haplotype2-0000093_chr14/NA12877_2_haplotype2-0000056_chr14.fa

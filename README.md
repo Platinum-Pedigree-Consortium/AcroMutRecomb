@@ -90,7 +90,7 @@ The test is done by function ```test_rc_bp()``` in ```transmission/TestRC.py```.
 ##### q-arm vs. euchromatin regions
 
 Randomly shuffle 5Mbp regions on euchromatin regions and count the number of recombination events. 
-The results are used to create the distribution in Figure S6b
+The results are used to create the distribution in Figure S6b. We excluded acrocentric short arms and 5Mbp on q-arm.
 ```
 for i in {1..5000}; do
 bedtools shuffle -i qarm_5Mb.bed -g chm13.chrlen.txt -excl excl_regions.bed > tmp/shuffle_"$i".bed
@@ -101,8 +101,8 @@ done
 
 ##### acrocentric p-arm vs. metacentric p-arm
 
-Randomly shuffle 38Mbp regions on euchromatin regions and count the number of recombination events. 
-The results are used to create the distribution in Figure S6c.
+Randomly shuffle 38Mbp regions on p-arm regions and count the number of recombination events. 
+The results are used to create the distribution in Figure S6c. We excluded pericentromeric regions (5Mbp within centromere) on metacentric p-arms
 
 ```
 for i in {1..5000}; do
